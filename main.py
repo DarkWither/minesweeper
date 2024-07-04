@@ -1,6 +1,10 @@
+# Minesweeper
+# Beta version
+# Made by Attila Ladányi
+# 2024.07.
+
 import tkinter as tk
 from tkinter import *
-from tkinter import ttk
 import random
 
 class Program:
@@ -11,108 +15,64 @@ class Program:
         height = 20
         num_of_mines = 10
 
-        minefield = MineField(width, height, num_of_mines, root)
+        root.geometry(f"{width * 20}x{height * 20}")
+        root.title("Minesweeper")
+        root.resizable(False, False)
+        root.iconbitmap('logo.ico')
 
-class Field:
-    """
-    The parent class of the clickable buttons on the screen.
-    """
+        canvas = Canvas(self.root, width = width * 20, height = height * 20, bg="red")
+        canvas.pack()
 
-    def __init__(self, where, r, c) -> None:
-        self.flaged = False
-        self.revealed = False
+        minefield = MineField(width, height, num_of_mines, canvas)
 
-        self.tk_button = Button(where, bg="grey")
-        self.tk_button.config(command = lambda: self.onClick())
+        def click(event) -> None:
+            minefield.onClick(event.x, event.y)
+            
+            if minefield.lost:
+                self.lose()
 
-        # note: there is probably a better way to do this
-        def flag(event) -> None:
-            if not self.revealed:
-                if (self.flaged):
-                    self.flaged = False
-                    self.tk_button.config(background="grey")
-                else:
-                    self.flaged = True
-                    self.tk_button.config(background="green")
-
-        self.tk_button.bind('<Button-3>', flag)
-
-        self.tk_button.grid(row = r, column= c, sticky = "NSEW")
-
-    def onClick(self) -> None:
-        pass
-
-class EmptyField(Field):
-    """
-    The field, which borders no mines.
-    """
-
-    def onClick(self) -> None:
-        self.revealed = True
-        if not self.flaged:
-            self.tk_button.config(background="white", disabledforeground="black")
-
-class Mine(Field):
-    """
-    The field containing a mine.
-    """
-
-    def onClick(self) -> None:
-        self.revealed = True
-        if not self.flaged:
-            self.tk_button.config(background="black", disabledforeground="black")
-        
-class NumberField(Field):
-    """
-    The field containing the number of mines it borders.
-    """    
-
-    def __init__(self, where, r, c, num_of_mines) -> None:
-        self.num_of_mines = num_of_mines
-        self.flaged = False
-        self.revealed = False
-
-        self.tk_button = Button(where, bg="grey")
-        self.tk_button.config(command = lambda: self.onClick())
-
-        # note: there is probably a better way to do this
-        def flag(event) -> None:
-            if not self.revealed:
-                if (self.flaged):
-                    self.flaged = False
-                else:
-                    self.flaged = True
-                self.tk_button.config(background="green")
-
-        self.tk_button.bind('<Button-3>', flag)
-
-        self.tk_button.grid(row = r, column= c, sticky = "NSEW")
+            if minefield.won_game():
+                self.win()
 
 
-    def onClick(self) -> None:
-        self.revealed = True
-        if not self.flaged:
-            self.tk_button.config(background="white", text = str(self.num_of_mines), disabledforeground="black")
+        def rightClick(event) -> None:
+            minefield.flag(event.x, event.y)
 
+        canvas.bind('<Button-1>', click)
+        canvas.bind('<Button-3>', rightClick)
+
+    def win(self) -> None:
+        print("You won!")
+
+    def lose(self):
+        print("You lost!")
 
 class MineField:
     """
-    The "minefield" containing the buttons of the game.
+    The minefield containing the "buttons" of the game.
     """
 
-    def __init__(self, width, height, num_of_mines, root) -> None:
+    def __init__(self, width, height, num_of_mines, canvas) -> None:
         self.width: int = width
         self.height: int = height
         self.num_of_mines: int = num_of_mines
 
+        self.canvas = canvas
+
+        self.lost = False
+
         self.minefield = [list() for row in range(0, height)]
+        self.revealed_fields = [list() for row in range(0, height)]
+        self.flaged_fields = [list() for row in range(0, height)]
 
         for row in range(0, height):
             for column in range(0, width):
                 self.minefield[row].append(0)
+                self.revealed_fields[row].append(False)
+                self.flaged_fields[row].append(False)
 
         self.lay_down_mines()
-        self.config_widgets(root)
+        self.draw_minefield(root)
 
     def lay_down_mines(self) -> None:
         # put the mines in random positions
@@ -137,75 +97,97 @@ class MineField:
         for x in range(0, self.height):
             for y in range(0, self.width):
                 if (self.minefield[x][y] != -1):
-                    num_of_bordering_mines = 0
+                    self.minefield[x][y] = self.num_of_bordering_mines(x, y)
 
-                    # x x x
-                    # o c o
-                    # o o o
-                    # x: inspected fields, o: other fields, c: current field
-                    if (x > 0):
-                        num_of_bordering_mines += mine_there(x - 1, y)
 
-                        if (y > 0):
-                            num_of_bordering_mines += mine_there(x - 1, y - 1)
+    def num_of_bordering_mines(self, row, column) -> int:
+        num = 0
+        
+        for i in range(max(0, row - 1), min(self.height, row + 2)):
+            for j in range(max(0, column - 1), min(self.width, column + 2)):
+                
+                if (i == row and j == column):
+                    continue
+                
+                if self.minefield[i][j] == -1:
+                    num += 1
+                    
+        return num
 
-                        if (y < self.width - 1):
-                            num_of_bordering_mines += mine_there(x - 1, y + 1)
+    def draw_minefield(self, root) -> None:
+        for x in range(self.width):
+            for y in range(self.height):
+                h_x, h_y = x * 20, y * 20
+                self.canvas.create_rectangle(h_x , h_y, h_x + 20, h_y + 20, fill = "grey", outline="black")
 
-                    # o o o
-                    # o c o
-                    # x x x
-                    if (x < self.height - 1):
-                        num_of_bordering_mines += mine_there(x + 1, y)
+    def reveal_field(self, row, column) -> None:
+        self.revealed_fields[row][column] = True
 
-                        if (y > 0):
-                            num_of_bordering_mines += mine_there(x + 1, y - 1)
+        if (self.minefield[row][column] == -1):
+            self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill="black", outline="black")
+        elif (self.minefield[row][column] == 0):
+            self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill="white", outline="black")
+        else:
+            self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill="white", outline="black")
+            self.canvas.create_text((row * 20) + 10, column * 20 + 10, text=f"{self.minefield[row][column]}", fill="black")
 
-                        if (y < self.width - 1):
-                            num_of_bordering_mines += mine_there(x + 1, y + 1)
-
-                    # o o o
-                    # x c x
-                    # o o o
-                    if (y > 0):
-                        num_of_bordering_mines += mine_there(x, y - 1)
-
-                    if (y < self.width - 1):
-                        num_of_bordering_mines += mine_there(x, y + 1)
-
-                    self.minefield[x][y] = num_of_bordering_mines
-
+    def reveal_all(self) -> None:
         for x in range(0, self.height):
             for y in range(0, self.width):
-                print(self.minefield[x][y], end="")
-            print()
+                self.reveal_field(y, x)                
 
-    def config_widgets(self, root) -> None:
-        self.frame = Frame(root, height= self.width * 20, width = self.height * 20)
-
-        self.frame.grid(padx = 0, pady = 0)
-        self.frame.columnconfigure(0, weight = 1)
-        self.frame.rowconfigure(0, weight = 1)
-        self.frame.grid_propagate(False)
-
-        for x in range(0, self.height):
-            for y in range(0, self.width):
-                self.frame.columnconfigure(x, weight = 1)
-                self.frame.rowconfigure(y, weight = 1)
-
-                if (self.minefield[x][y] == -1):
-                    Mine(self.frame, x, y)
-                elif (self.minefield[x][y] == 0):
-                    EmptyField(self.frame, x, y)
+    def reveal_neighbours(self, row, column) -> None:
+        for x in range(max(0, row-1), min(self.width, row+2)):
+            for y in range(max(0, column-1), min(self.height, column+2)):
+                if (x == row and y == column):
+                    continue
                 else:
-                    NumberField(self.frame, x, y, self.minefield[x][y])
+                    if not (self.revealed_fields[x][y]):
+                        self.reveal_field(x, y)
+                        if self.minefield[x][y] == 0:
+                            # recursion
+                            self.reveal_neighbours(x, y)
 
+    def onClick(self, x, y) -> None:
+            row = x // 20
+            column = y // 20
 
+            if not self.flaged_fields[row][column]:
+                # if clicked on mine:
+                if (self.minefield[row][column] == -1):
+                    self.reveal_all()
+                    self.lost = True
+                elif (self.minefield[row][column] == 0):
+                    self.reveal_neighbours(row, column)
+                else:
+                    self.reveal_field(row, column)
+
+    def flag(self, x: int, y: int) -> None:
+        row: int = (x // 20)
+        column: int = (y // 20)
+
+        if not self.revealed_fields[row][column]:
+            if self.flaged_fields[row][column]:
+                self.flaged_fields[row][column] = False
+                self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill = "grey", outline="black")
+            else:
+                self.flaged_fields[row][column] = True
+                self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill = "green", outline="black")
+
+    def won_game(self) -> bool:
+        num_of_revealed = 0
+
+        for row in self.revealed_fields:
+            for bool in row:
+                if bool:
+                    num_of_revealed += 1
+
+        if (self.width * self.height - self.num_of_mines == num_of_revealed):
+            return True
+        
+        return False
 
 if __name__ == '__main__':
     root = Tk()
-    root.geometry("500x500")
-    root.title("Minesweeper")
-    root.resizable(False, False)
     game = Program(root)
     root.mainloop()
