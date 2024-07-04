@@ -13,7 +13,7 @@ class Program:
 
         width = 20
         height = 20
-        num_of_mines = 10
+        num_of_mines = 25
 
         root.geometry(f"{width * 20}x{height * 20}")
         root.title("Minesweeper")
@@ -33,10 +33,11 @@ class Program:
 
             if minefield.won_game():
                 self.win()
-
+        
 
         def rightClick(event) -> None:
             minefield.flag(event.x, event.y)
+
 
         canvas.bind('<Button-1>', click)
         canvas.bind('<Button-3>', rightClick)
@@ -56,9 +57,7 @@ class MineField:
         self.width: int = width
         self.height: int = height
         self.num_of_mines: int = num_of_mines
-
         self.canvas = canvas
-
         self.lost = False
 
         self.minefield = [list() for row in range(0, height)]
@@ -72,7 +71,7 @@ class MineField:
                 self.flaged_fields[row].append(False)
 
         self.lay_down_mines()
-        self.draw_minefield(root)
+        self.draw_minefield()
 
     def lay_down_mines(self) -> None:
         # put the mines in random positions
@@ -114,7 +113,7 @@ class MineField:
                     
         return num
 
-    def draw_minefield(self, root) -> None:
+    def draw_minefield(self) -> None:
         for x in range(self.width):
             for y in range(self.height):
                 h_x, h_y = x * 20, y * 20
@@ -122,14 +121,15 @@ class MineField:
 
     def reveal_field(self, row, column) -> None:
         self.revealed_fields[row][column] = True
+        colour = "black"
 
-        if (self.minefield[row][column] == -1):
-            self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill="black", outline="black")
-        elif (self.minefield[row][column] == 0):
-            self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill="white", outline="black")
-        else:
-            self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill="white", outline="black")
-            self.canvas.create_text((row * 20) + 10, column * 20 + 10, text=f"{self.minefield[row][column]}", fill="black")
+        if (self.minefield[row][column] != -1):
+            colour = "white"
+
+        self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill= colour, outline="black")
+
+        if (self.minefield[row][column] > 0):
+                self.canvas.create_text((row * 20) + 10, column * 20 + 10, text=f"{self.minefield[row][column]}", fill="black")
 
     def reveal_all(self) -> None:
         for x in range(0, self.height):
@@ -167,12 +167,16 @@ class MineField:
         column: int = (y // 20)
 
         if not self.revealed_fields[row][column]:
+            colour = "grey"
+
             if self.flaged_fields[row][column]:
                 self.flaged_fields[row][column] = False
-                self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill = "grey", outline="black")
             else:
                 self.flaged_fields[row][column] = True
-                self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill = "green", outline="black")
+                colour = "green"
+        
+            self.canvas.create_rectangle(row * 20, column * 20, row * 20 + 20, column * 20 + 20, fill = colour, outline="black")
+
 
     def won_game(self) -> bool:
         num_of_revealed = 0
